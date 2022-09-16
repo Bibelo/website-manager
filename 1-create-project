@@ -1,0 +1,92 @@
+#!/bin/bash
+
+# set -x
+
+init(){
+	SCRIPT=`realpath $0`
+	SCRIPTPATH=`dirname $SCRIPT`
+
+	. ./config.ini
+}
+
+generaldb_credential(){
+    unset login
+    prompt="Enter generaldb_mariadb admin username: "
+    read -p "$prompt" username
+    
+    unset password
+    prompt="Enter generaldb_mariadb admin password: "
+    while IFS= read -p "$prompt" -r -s -n 1 char
+    do
+        if [[ $char == $'\0' ]]
+        then
+            break
+        fi
+        prompt='*'
+        password+="$char"
+    done
+    echo
+}
+
+generate_new_credentials(){
+	export new_username=$new_project-$(bw generate -p)
+	export new_password=$(bw generate)
+}
+
+create_db_user(){
+	#command="CREATE DATABASE \`$new_project\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$new_project.*\` TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
+	command="CREATE DATABASE \`$new_project\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$new_project\`.* TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
+
+	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
+}
+
+create_files(){
+
+	mkdir -p /var/www/$new_project/wordpress
+	chown 1001 /var/www/$new_project/wordpress
+	chmod o-rws /var/www/$new_project/wordpress
+
+	mkdir /projects/$new_project/
+
+	cp $SCRIPTPATH/sources/docker-compose_wordpress.yml /projects/$new_project/docker-compose.yml
+	
+	sed -i "s/{{new_project}}/$new_project/g" /projects/$new_project/docker-compose.yml
+
+#	export new_project=$new_project
+#	export new_username=$new_username
+#	export new_password=$new_password
+
+	docker compose -f /projects/$new_project/docker-compose.yml up -d
+}
+
+main(){
+	init
+
+	generaldb_credential
+#	echo "Done. Login=$username"
+#	echo "Done. Password=$password"
+
+
+	prompt="Enter name of new project: "
+	read -p "$prompt" new_project
+	export new_project
+	generate_new_credentials
+
+	create_db_user
+
+	create_files
+
+	echo -e "\nSave this info (in Bitwarden?):"
+	echo "New database: $new_project"
+	echo "New user: $new_username"
+	echo "New password: $new_password"
+
+	echo "When recreating the project container, you will need to type this line before:"
+	echo "export new_project=$new_project; export new_username=$new_username; export new_password=$new_password"
+	echo "Then:"
+	echo "docker compose -f /projects/$new_project/docker-compose.yml up -d"
+
+}
+
+main $@
+

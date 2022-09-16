@@ -1,0 +1,37 @@
+#!/bin/bash
+# set -x
+
+init(){
+        SCRIPT=$(realpath $0)
+        SCRIPTPATH=$(dirname $SCRIPT)
+        tools_path=$SCRIPTPATH
+
+	. config.ini
+}
+
+main(){
+	init
+
+	echo "Domain names installed"
+	grep -H server_name /var/www/reverse_proxy/conf.d/* | uniq
+	echo
+
+	echo "Domain name to delete"
+	read domain_name
+	if [[ -z $domain_name ]]; then
+                echo "Domain name cannot be empty"
+                exit 1
+        fi
+
+	rm -f $reverse_proxy_defpath/${domain_name}.conf || echo "Fail to delete $reverse_proxy_defpath/${domain_name}.conf"
+	rm -rf $reverse_proxy_certpath/live/${domain_name}*
+	rm -rf $reverse_proxy_certpath/renewal/${domain_name}*
+
+	if ! docker exec $reverse_proxy nginx -t; then
+		echo -e "Failed to load nginx configuration for $domain_name"
+		exit
+	fi
+	docker exec $reverse_proxy pkill -HUP nginx
+}
+
+main $@

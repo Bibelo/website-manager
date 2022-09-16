@@ -1,0 +1,158 @@
+#!/bin/bash
+# This script configures the developers group depending on the type of server
+# It then connects as each users, so that homes are created
+# Finally, it sets the developers group as primary group for each user
+# 
+# Version 1.0
+# tbartolone 30/06/2020
+ set -x
+
+usage() {
+	PROGNAME=$0
+	cat <<- EOF
+	# lines must be indented with TAB
+
+	This script saves the logs collection for a given container
+	Missing arguments
+	$PROGNAME <archive full path> <project name> <suffix>
+
+	- suffix: project will be restored to <project>-<suffix>
+		- if empty, project will be restored simple to <project>
+	
+	EOF
+	exit 1
+}
+
+init(){
+	GREEN='\033[0;32m'
+	RED='\033[0;31m'
+	CYAN='\033[0;36m'
+	NC='\033[0m' # No Color
+	timestamp=$(date +%Y%m%H%M)
+
+	. config.ini
+}
+
+go(){
+	:
+}
+
+testexec(){
+	:
+}
+
+generaldb_credential(){
+    unset login
+    prompt="Enter generaldb_mariadb admin username: "
+    read -p "$prompt" username
+
+    unset password
+    prompt="Enter generaldb_mariadb admin password: "
+    while IFS= read -p "$prompt" -r -s -n 1 char
+    do
+        if [[ $char == $'\0' ]]
+        then
+            break
+        fi
+        prompt='*'
+        password+="$char"
+    done
+    echo
+}
+
+# generate_new_credentials(){
+# export new_username=$project$suffix-$(bw generate -p)
+# export new_password=$(bw generate)
+# }
+
+input_credentials(){
+	echo "Enter project username for the DB"
+	read new_username
+	echo "Enter project password for the DB"
+	read new_password
+	export new_username
+	export new_password
+}
+
+
+create_db_user(){
+        command="CREATE DATABASE \`$project$suffix\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$project$suffix\`.* TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
+
+        docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
+}
+
+main(){
+
+	init
+
+	archive=$1
+	project=$2
+	if [[ -n $3 ]]; then
+		suffix="-$3"
+		echo "First please create project $project$suffix"
+	else
+		suffix=''
+	fi
+
+	read
+
+	archive_name=$(basename $archive | sed 's/\.tgz//')
+	mkdir -p $restore_path/$archive_name
+	tar -xzf $archive --directory $restore_path/$archive_name
+
+	if [[ -n $suffix ]]; then
+		# Restore data
+		rm -rf $varwww_path/$project$suffix/wordpress/wp-content
+		mv $restore_path/$archive_name/$relative_varwww_path/$project/wordpress/wp-content $varwww_path/$project$suffix/wordpress
+	else
+		# Restore data
+		mv $restore_path/$archive_name/$relative_varwww_path/$project $varwww_path/$project$suffix
+	fi
+	# Restore container config
+#	mv $restore_path/$archive_name/$relative_project_path/$project $project_path/$project$suffix
+#	sed -i "s/$project/$project$suffix/g" $project_path/$project$suffix/docker-compose.yml
+
+	# Restore base
+	echo -e "\nRestoring base"
+	set +x
+	generaldb_credential
+	input_credentials
+	create_db_user
+	set -x
+	mv $restore_path/$archive_name/$relative_db_shared_path_host/$project.sql $db_shared_path_host
+#        command="CREATE DATABASE \`$project$suffix\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$project$suffix\`.* TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
+        docker exec $generaldb_container_name bash -c "mysql -u $username -p$password $project$suffix < $db_shared_path_container/$project.sql"
+
+#	generate_new_credentials
+
+        echo -e "\nSave this info (in Bitwarden?):"
+        echo "New database: $new_project"
+        echo "New user: $new_username"
+        echo "New password: $new_password"
+
+        echo "When recreating the project container, you will need to type this line before:"
+        echo "export new_project=$project$suffix; export new_username=$new_username; export new_password=$new_password"
+        echo "Then:"
+        echo "docker compose -f /projects/$project$suffix/docker-compose.yml up -d"
+
+
+
+	exit
+
+	if [[ $1 = "go" ]]
+		then
+			init
+			go
+			testexec
+		else
+			init
+			testexec
+	fi
+}
+
+if [[ $# -eq 0 ]]
+	then
+		usage
+fi
+
+main $@

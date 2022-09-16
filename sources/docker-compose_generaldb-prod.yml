@@ -1,0 +1,19 @@
+version: '2'
+services:
+  generaldb-prod:
+    image: docker.io/bitnami/mariadb:10.3
+    container_name: generaldb-prod
+    volumes:
+      - '/var/www/generaldb/prod/mariadb:/bitnami/mariadb'
+    environment:
+      - MARIADB_ROOT_USER=${MARIADB_ROOT_USER}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - ALLOW_EMPTY_PASSWORD=no
+      - BITNAMI_DEBUG=false
+    restart: always
+    networks:
+      - back
+
+networks:
+  back:
+    name: back

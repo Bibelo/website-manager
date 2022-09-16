@@ -1,0 +1,53 @@
+#!/bin/bash
+# set -x
+
+init(){
+	SCRIPT=$(realpath $0)
+	SCRIPTPATH=$(dirname $SCRIPT)
+	tools_path=$SCRIPTPATH
+
+	. config.ini
+}
+
+main(){
+	init
+
+	echo "Domain name to create"
+	read domain_name
+	echo -e "\n\n"
+	docker ps --format '{{.Names}}\n{{.Ports}}\n'
+	echo -e "\nContainer name to redirect to"
+	read container_name
+	echo -e "\nContainer port to redirect to"
+	read container_port
+
+	# A basic NGINX HTTP (port 80) config is installed in the Reverse Proxy directory
+	cp $tools_path/sources/nginx-beforecert.conf $reverse_proxy_defpath/${domain_name}.conf || echo "Fail to copy nginx-beforecert.conf to $reverse_proxy_defpath"
+	sed -i -e "s/{{domain-name}}/$domain_name/g" -e "s/{{container-name}}/$container_name/g" -e "s/{{container-port}}/$container_port/g" $reverse_proxy_defpath/${domain_name}.conf
+
+
+	# Restart Reverse Proxy with a basic HTTP (port 80) config for the new domain
+	# See the challenge can be seen by Let's Encrypt
+	docker exec $reverse_proxy pkill -HUP nginx
+
+	# Certbot sets the challenge in subdirectories of the HTTP website
+	# then download certs and adjust config to include HTTPS (443)
+	docker exec -t $reverse_proxy certbot -d ${domain_name} --nginx -m ${email}
+
+	# Install some obscure TLS parameters
+	if [ ! -f "$reverse_proxy_certpath/options-ssl-nginx.conf" ] || [ ! -e "$reverse_proxy_certpath/ssl-dhparams.pem" ]; then
+ 		mkdir -p "$reverse_proxy_certpath"
+		curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "$reverse_proxy_certpath/options-ssl-nginx.conf"
+		curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "$reverse_proxy_certpath/ssl-dhparams.pem"
+	fi
+
+	if ! docker exec $reverse_proxy nginx -t; then
+		echo -e "nginx configuration is corrupted! Reverse Proxy probably won't restart"
+		exit 1
+	fi
+
+	# Now we reload Reverse Proxy to take into account the final config (HTTP/HTTPS)
+	docker exec $reverse_proxy pkill -HUP nginx
+}
+
+main $@

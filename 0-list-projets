@@ -1,0 +1,66 @@
+#!/bin/bash
+
+# set -x
+
+init(){
+	. ./config.ini
+}
+
+generaldb_credential(){
+    unset login
+    prompt="Enter generaldb_mariadb ADMIN username: "
+    read -p "$prompt" username
+    
+    unset password
+    prompt="Enter generaldb_mariadb ADMIN password: "
+    while IFS= read -p "$prompt" -r -s -n 1 char
+    do
+        if [[ $char == $'\0' ]]
+        then
+            break
+        fi
+        prompt='*'
+        password+="$char"
+    done
+    echo
+}
+
+show_dbs(){
+	echo "Showing Databases"
+	command="show databases;"
+	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
+	echo
+}
+
+show_db_users(){
+	echo "Showing Users"
+	command="SELECT User FROM mysql.user;"
+
+	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
+	echo
+}
+
+main(){
+	init
+	generaldb_credential
+
+	echo "Content of /var/www"
+	ls -1A /var/www
+	echo
+
+	echo "Content of /projects"
+	ls -1A /projects
+	echo
+
+	echo "Databases"
+	show_dbs
+	echo
+
+	echo "Container"
+	docker ps --format='{{.Names}}'
+	echo
+
+}
+
+main $@
+
