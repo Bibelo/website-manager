@@ -10,7 +10,7 @@ services:
       - /var/www/{{new_project}}/wordpress:/bitnami/wordpress
     environment:
       - ALLOW_EMPTY_PASSWORD=no
-      - WORDPRESS_DATABASE_HOST=generaldb_mariadb_dev
+      - WORDPRESS_DATABASE_HOST={{database}}
       - WORDPRESS_DATABASE_PORT_NUMBER=3306
       - WORDPRESS_DATABASE_USER=$new_username
       - WORDPRESS_DATABASE_PASSWORD=$new_password

@@ -2,8 +2,28 @@
 
 # set -x
 
+usage() {
+        PROGNAME=$0
+        cat <<- EOF
+
+	$PROGNAME dev|prod
+
+	EOF
+                exit 1
+}
+
 init(){
+	GREEN='\033[0;32m'
+	RED='\033[0;31m'
+	CYAN='\033[0;36m'
+	NC='\033[0m' # No Color
+
 	. ./config.ini
+}
+
+clearmsg(){
+        msg=$1
+        printf "${CYAN}${msg}${NC}\n"
 }
 
 generaldb_credential(){
@@ -26,26 +46,30 @@ generaldb_credential(){
 }
 
 generaldb_credentials_file(){
-	unset username
-	unset password
-	if [[ ! -f .generaldb_creds ]]; then
-		echo "Credentials file cannot be found (.generaldb_creds)"
-		exit 1
-	fi
+        unset username
+        unset password
+        if [[ ! -f .generaldb_creds ]]; then
+                echo "Credentials file cannot be found (.generaldb_creds)"
+                exit 1
+        fi
 
-	. ./.generaldb_creds
+        . ./.generaldb_creds
 
-	if [[ -z $username ]] || [[ -z password ]]; then
-		echo "Credentials are empty (in .generaldb_creds)"
-		exit 1
-	fi
+        username=${mode}_username
+        username=${!username}
+        password=${mode}_password
+        password=${!password}
+
+        if [[ -z $username ]] || [[ -z password ]]; then
+                echo "Credentials are empty (in .generaldb_creds)"
+                exit 1
+        fi
 }
 
 show_dbs(){
 	echo "Showing Databases"
 	command="show databases;"
 	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
-	echo
 }
 
 show_db_users(){
@@ -53,31 +77,44 @@ show_db_users(){
 	command="SELECT User FROM mysql.user;"
 
 	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
-	echo
 }
 
 main(){
 	init
-	#generaldb_credential
+
+        mode=$1
+        generaldb_container_name=${mode}_generaldb_container_name
+        generaldb_container_name=${!generaldb_container_name}
+
 	generaldb_credentials_file
 
-	echo "Content of /var/www"
+	clearmsg "Content of /var/www"
 	ls -1A /var/www
 	echo
 
-	echo "Content of /projects"
+	clearmsg "Content of /projects"
 	ls -1A /projects
 	echo
 
-	echo "Databases"
+	clearmsg "Databases"
 	show_dbs
 	echo
 
-	echo "Container"
+	clearmsg "Users"
+	show_db_users
+	echo
+
+	clearmsg "Running containers"
 	docker ps --format='{{.Names}}'
 	echo
 
 }
+
+if [[ $# -ne 1 ]]
+        then
+                init
+                usage
+fi
 
 main $@
 

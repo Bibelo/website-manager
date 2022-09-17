@@ -76,7 +76,7 @@ main(){
 ### 	fi
 }
 
-if [[ $# -eq 0 ]]
+if [[ $# -ne 1 ]]
 	then
 		init
 		usage

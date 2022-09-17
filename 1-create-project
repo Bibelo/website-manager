@@ -2,6 +2,18 @@
 
 # set -x
 
+usage() {
+        PROGNAME=$0
+        cat <<- EOF
+
+	This script saves the logs collection for a given container
+	Missing arguments
+	$PROGNAME <project_name> dev|prod
+
+	EOF
+		exit 1
+}
+
 init(){
 	SCRIPT=`realpath $0`
 	SCRIPTPATH=`dirname $SCRIPT`
@@ -38,6 +50,11 @@ generaldb_credentials_file(){
 
         . ./.generaldb_creds
 
+        username=${mode}_username
+        username=${!username}
+        password=${mode}_password
+        password=${!password}
+
         if [[ -z $username ]] || [[ -z password ]]; then
                 echo "Credentials are empty (in .generaldb_creds)"
                 exit 1
@@ -66,7 +83,7 @@ create_files(){
 
 	cp $SCRIPTPATH/sources/docker-compose_wordpress.yml /projects/$new_project/docker-compose.yml
 	
-	sed -i "s/{{new_project}}/$new_project/g" /projects/$new_project/docker-compose.yml
+	sed -i -e "s/{{new_project}}/$new_project/g" -e "s/{{database}}/$generaldb_container_name/g" /projects/$new_project/docker-compose.yml
 
 #	export new_project=$new_project
 #	export new_username=$new_username
@@ -78,21 +95,19 @@ create_files(){
 main(){
 	init
 
-#	generaldb_credential
-	generaldb_credentials_file
-
-
-	prompt="Enter name of new project: "
-	read -p "$prompt" new_project
+	new_project=$1
 	export new_project
+	mode=$2
+	generaldb_container_name=${mode}_generaldb_container_name
+	generaldb_container_name=${!generaldb_container_name}
+
+	generaldb_credentials_file $mode
 	generate_new_credentials
-
 	create_db_user
-
 	create_files
 
 	echo -e "\nSave this info (in Bitwarden?):"
-	echo "New database: $new_project"
+	echo "New database in $generaldb_container_name: $new_project"
 	echo "New user: $new_username"
 	echo "New password: $new_password"
 
@@ -102,6 +117,12 @@ main(){
 	echo "docker compose -f /projects/$new_project/docker-compose.yml up -d"
 
 }
+
+if [[ $# -ne 2 ]]
+        then
+                init
+                usage
+fi
 
 main $@
 
