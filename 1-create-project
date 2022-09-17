@@ -28,6 +28,22 @@ generaldb_credential(){
     echo
 }
 
+generaldb_credentials_file(){
+        unset username
+        unset password
+        if [[ ! -f .generaldb_creds ]]; then
+                echo "Credentials file cannot be found (.generaldb_creds)"
+                exit 1
+        fi
+
+        . ./.generaldb_creds
+
+        if [[ -z $username ]] || [[ -z password ]]; then
+                echo "Credentials are empty (in .generaldb_creds)"
+                exit 1
+        fi
+}
+
 generate_new_credentials(){
 	export new_username=$new_project-$(bw generate -p)
 	export new_password=$(bw generate)
@@ -62,9 +78,8 @@ create_files(){
 main(){
 	init
 
-	generaldb_credential
-#	echo "Done. Login=$username"
-#	echo "Done. Password=$password"
+#	generaldb_credential
+	generaldb_credentials_file
 
 
 	prompt="Enter name of new project: "

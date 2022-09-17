@@ -25,6 +25,22 @@ generaldb_credential(){
     echo
 }
 
+generaldb_credentials_file(){
+        unset username
+        unset password
+        if [[ ! -f .generaldb_creds ]]; then
+                echo "Credentials file cannot be found (.generaldb_creds)"
+                exit 1
+        fi
+
+        . ./.generaldb_creds
+
+        if [[ -z $username ]] || [[ -z password ]]; then
+                echo "Credentials are empty (in .generaldb_creds)"
+                exit 1
+        fi
+}
+
 show_dbs(){
 	echo "Showing Databases"
 	command="show databases;"
@@ -65,7 +81,8 @@ show_db_users(){
 
 main(){
 	init
-	generaldb_credential
+#	generaldb_credential
+	generaldb_credentials_file
 
 	execution
 
