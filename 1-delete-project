@@ -1,6 +1,17 @@
 #!/bin/bash
 
-# set -x
+set -x
+
+usage() {
+        PROGNAME=$0
+        cat <<- EOF
+
+	Missing arguments
+	$PROGNAME <project_name> <username> dev|prod
+
+	EOF
+        exit 1
+}
 
 init(){
 	. ./config.ini
@@ -34,6 +45,11 @@ generaldb_credentials_file(){
         fi
 
         . ./.generaldb_creds
+
+        username=${mode}_username
+        username=${!username}
+        password=${mode}_password
+        password=${!password}
 
         if [[ -z $username ]] || [[ -z password ]]; then
                 echo "Credentials are empty (in .generaldb_creds)"
@@ -80,46 +96,53 @@ show_db_users(){
 }
 
 main(){
-	init
-#	generaldb_credential
-	generaldb_credentials_file
 
-	execution
+        init
 
-	while true; do
-		echo
-		prompt="Other things to delete? (yes/no) "
-		read -p "$prompt" answer
-		if [[ $answer =~ ^(yes|y|YES|Y)$ ]]; then
-			execution
-		else
-			break
-		fi
-	done
-}
+        project_to_delete=$1
+	username_to_delete=$2
+        export $project_to_delete
+        export $username_to_delete
+        mode=$3
 
-execution(){
-	echo
-	show_dbs
+        generaldb_container_name=${mode}_generaldb_container_name
+        generaldb_container_name=${!generaldb_container_name}
 
-	echo "Content of /var/www"
-	ls -1A /var/www
-	echo
+        generaldb_credentials_file $mode
 
-	echo "Content of /projects"
-	ls -1A /projects
-	echo
+### 	while true; do
+### 		echo
+### 		prompt="Other things to delete? (yes/no) "
+### 		read -p "$prompt" answer
+### 		if [[ $answer =~ ^(yes|y|YES|Y)$ ]]; then
+### 			execution
+### 		else
+### 			break
+### 		fi
+### 	done
 
-	prompt="Enter name of project to delete: "
-	read -p "$prompt" project_to_delete
+### 	echo
+### 	show_dbs
+### 
+### 	echo "Content of /var/www"
+### 	ls -1A /var/www
+### 	echo
+### 
+### 	echo "Content of /projects"
+### 	ls -1A /projects
+### 	echo
+### 
+### 	prompt="Enter name of project to delete: "
+### 	read -p "$prompt" project_to_delete
+
 	if [[ -z $project_to_delete ]]; then
 		echo "Project name cannot be empty"
 		exit 1
 	fi
 
-	show_db_users
-	prompt="Enter username to delete: "
-	read -p "$prompt" username_to_delete
+#	show_db_users
+#	prompt="Enter username to delete: "
+#	read -p "$prompt" username_to_delete
 
 	delete_db_user
 	show_db_users
@@ -132,6 +155,12 @@ execution(){
 
 	delete_files
 }
+
+if [[ $# -ne 3 ]]
+        then
+                init
+                usage
+fi
 
 main $@
 
