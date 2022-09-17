@@ -1,2 +1,3 @@
 config.ini
-.generaldb_creds
+.dev_generaldb_creds
+.prod_generaldb_creds
