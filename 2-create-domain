@@ -4,9 +4,18 @@
 init(){
 	SCRIPT=$(realpath $0)
 	SCRIPTPATH=$(dirname $SCRIPT)
+        GREEN='\033[0;32m'
+        RED='\033[0;31m'
+        CYAN='\033[0;36m'
+        NC='\033[0m' # No Color
 	tools_path=$SCRIPTPATH
 
 	. config.ini
+}
+
+clearmsg(){
+        msg=$1
+        printf "${CYAN}${msg}${NC}\n"
 }
 
 main(){
@@ -32,7 +41,7 @@ main(){
 
 	# Certbot sets the challenge in subdirectories of the HTTP website
 	# then download certs and adjust config to include HTTPS (443)
-	docker exec -t $reverse_proxy certbot -d ${domain_name} --nginx -m ${email}
+	docker exec -it $reverse_proxy certbot --agree-tos -n -d ${domain_name} --nginx -m ${email}
 
 	# Install some obscure TLS parameters
 	if [ ! -f "$reverse_proxy_certpath/options-ssl-nginx.conf" ] || [ ! -e "$reverse_proxy_certpath/ssl-dhparams.pem" ]; then

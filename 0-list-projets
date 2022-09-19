@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -x
+ #set -x
 
 usage() {
         PROGNAME=$0
@@ -46,14 +46,15 @@ generaldb_credential(){
 }
 
 generaldb_credentials_file(){
+	mode=$1
         unset username
         unset password
-        if [[ ! -f .generaldb_creds ]]; then
+        if [[ ! -f .${mode}_generaldb_creds ]]; then
                 echo "Credentials file cannot be found (.generaldb_creds)"
                 exit 1
         fi
 
-        . ./.generaldb_creds
+        . ./.${mode}_generaldb_creds
 
         username=${mode}_username
         username=${!username}
@@ -67,13 +68,19 @@ generaldb_credentials_file(){
 }
 
 show_dbs(){
-	echo "Showing Databases"
+	mode=$1
+	generaldb_container_name=${mode}_generaldb_container_name
+	generaldb_container_name=${!generaldb_container_name}
+
 	command="show databases;"
 	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
 }
 
 show_db_users(){
-	echo "Showing Users"
+	mode=$1
+	generaldb_container_name=${mode}_generaldb_container_name
+	generaldb_container_name=${!generaldb_container_name}
+
 	command="SELECT User FROM mysql.user;"
 
 	docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
@@ -82,11 +89,10 @@ show_db_users(){
 main(){
 	init
 
-        mode=$1
-        generaldb_container_name=${mode}_generaldb_container_name
-        generaldb_container_name=${!generaldb_container_name}
+#        mode=$1
+#        generaldb_container_name=${mode}_generaldb_container_name
+#        generaldb_container_name=${!generaldb_container_name}
 
-	generaldb_credentials_file
 
 	clearmsg "Content of /var/www"
 	ls -1A /var/www
@@ -96,21 +102,40 @@ main(){
 	ls -1A /projects
 	echo
 
-	clearmsg "Databases"
-	show_dbs
+	generaldb_credentials_file dev
+
+	clearmsg "Databases in dev DB container"
+	show_dbs dev
 	echo
 
-	clearmsg "Users"
-	show_db_users
+	clearmsg "Users in dev DB container"
+	show_db_users dev
+	echo
+
+	generaldb_credentials_file prod
+
+	clearmsg "Databases in prod DB container"
+	show_dbs prod
+	echo
+
+	clearmsg "Users in prod DB container"
+	show_db_users prod
 	echo
 
 	clearmsg "Running containers"
 	docker ps --format='{{.Names}}'
 	echo
 
+	clearmsg "Stopped containers"
+	diff  --unchanged-group-format="" --new-group-format="%>"  <(docker ps --format='{{.Names}}') <(docker ps -a --format='{{.Names}}')
+	echo
+	
+	clearmsg "Content of Reverse Proxy path"
+	ls -1Atr $reverse_proxy_defpath
+
 }
 
-if [[ $# -ne 1 ]]
+if [[ $# -ne 0 ]]
         then
                 init
                 usage

@@ -5,16 +5,17 @@
 # 
 # Version 1.0
 # tbartolone 30/06/2020
-set -x
+# set -x
 
 usage() {
 	PROGNAME=$0
 	cat <<- EOF
-	# lines must be indented with TAB
-
-	This script saves the logs collection for a given container
 	Missing arguments
-	$PROGNAME <project_name>
+	$PROGNAME <project_name> <mode>
+
+	For example:
+	$PROGNAME acme dev
+	Will backup acme-dev in dev DB
 
 	$credentials_path/.<project_name>.cnf
 	[mysqldump]
@@ -35,20 +36,16 @@ init(){
 	. config.ini
 }
 
-go(){
-	:
-}
-
-testexec(){
-	:
-}
-
-
 main(){
-
 	init
 
-	project_name=$1
+	mode=$2
+	project_name=$1-$mode
+        generaldb_container_name=${mode}_generaldb_container_name
+        generaldb_container_name=${!generaldb_container_name}
+	db_shared_path_host=${mode}_db_shared_path_host
+	db_shared_path_host=${!db_shared_path_host}
+
 	# Move the credentials
 	cp $credentials_path/.${project_name}.cnf $db_shared_path_host
 	chown ${container_uid}:nogroup $db_shared_path_host/.${project_name}.cnf
@@ -59,8 +56,7 @@ main(){
 	rm -f $db_shared_path_host/.${project_name}.cnf
 
 	# TGZ Wordpress website along with database backup
-	tar -czvf $backups_path/${project_name}-${timestamp}.tgz $varwww_path/${project_name}/wordpress $db_shared_path_host/${project_name}.sql ${project_path}/${project_name}
-#	/data/code/bara/ /root/backup/barabackup2
+	tar -czf $backups_path/${project_name}-${timestamp}.tgz $varwww_path/${project_name}/wordpress $db_shared_path_host/${project_name}.sql ${project_path}/${project_name}
 
 	# Delete database backup
 	rm -f $db_shared_path_host/${project_name}.sql
@@ -76,7 +72,7 @@ main(){
 ### 	fi
 }
 
-if [[ $# -ne 1 ]]
+if [[ $# -ne 2 ]]
 	then
 		init
 		usage

@@ -15,10 +15,20 @@ usage() {
 }
 
 init(){
+        GREEN='\033[0;32m'
+        RED='\033[0;31m'
+        CYAN='\033[0;36m'
+        NC='\033[0m' # No Color
+
 	SCRIPT=`realpath $0`
 	SCRIPTPATH=`dirname $SCRIPT`
 
 	. ./config.ini
+}
+
+clearmsg(){
+        msg=$1
+        printf "${CYAN}${msg}${NC}\n"
 }
 
 generaldb_credential(){
@@ -41,14 +51,15 @@ generaldb_credential(){
 }
 
 generaldb_credentials_file(){
+	mode=$1
         unset username
         unset password
-        if [[ ! -f .generaldb_creds ]]; then
+        if [[ ! -f .${mode}_generaldb_creds ]]; then
                 echo "Credentials file cannot be found (.generaldb_creds)"
                 exit 1
         fi
 
-        . ./.generaldb_creds
+        . ./.${mode}_generaldb_creds
 
         username=${mode}_username
         username=${!username}
@@ -95,9 +106,9 @@ create_files(){
 main(){
 	init
 
-	new_project=$1
-	export new_project
 	mode=$2
+	new_project=$1-$mode
+	export new_project
 	generaldb_container_name=${mode}_generaldb_container_name
 	generaldb_container_name=${!generaldb_container_name}
 
@@ -106,15 +117,29 @@ main(){
 	create_db_user
 	create_files
 
-	echo -e "\nSave this info (in Bitwarden?):"
-	echo "New database in $generaldb_container_name: $new_project"
-	echo "New user: $new_username"
-	echo "New password: $new_password"
+	clearmsg "\nSave this info (in Bitwarden?):"
+	cat <<-EOF
+	New database in $generaldb_container_name: $new_project
+	New user: $new_username
+	New password: $new_password
+	EOF
 
-	echo "When recreating the project container, you will need to type this line before:"
-	echo "export new_project=$new_project; export new_username=$new_username; export new_password=$new_password"
-	echo "Then:"
-	echo "docker compose -f /projects/$new_project/docker-compose.yml up -d"
+	clearmsg "\nBefore creating the container with docker compose"
+	cat <<-EOF
+	If you ever need to recreate the project container, you will need to type this line before:
+	export new_project=$new_project; export new_username=$new_username; export new_password=$new_password
+	Then:
+	docker compose -f $project_path/$new_project/docker-compose.yml up -d
+	EOF
+
+	clearmsg "\nTo create backup:"
+	cat <<-EOF
+	$credentials_path/.$new_project.cnf
+	[mysqldump]
+	user=$new_username
+	password=$new_password
+	EOF
+	
 
 }
 
