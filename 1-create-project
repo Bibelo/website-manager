@@ -105,7 +105,7 @@ create_files(){
 #	export new_username=$new_username
 #	export new_password=$new_password
 
-	docker compose -f /projects/$new_project/docker-compose.yml up -d
+	docker compose -f $project_path/$new_project/docker-compose.yml up -d
 }
 
 main(){

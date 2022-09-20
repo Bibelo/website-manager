@@ -5,7 +5,7 @@
 # 
 # Version 1.0
 # tbartolone 30/06/2020
-set -x
+# set -x
 
 usage() {
 	init
@@ -162,10 +162,17 @@ main(){
 	# Checks
 	if [[ -n $new_name ]]; then
 		if [[ -d $varwww_path/$new_name_mode ]]; then
-			clearmsg "There's already a project $new_name in $new_mode mode, in $varwww_path/$new_name_mode"
-			echo "Maybe it's just a brand new empty project you've just created for this restoration"
-			echo "In this case, you can just proceed by pressing a key"
-			read
+			if [[ -f $varwww_path/$new_name_mode/wordpress/wp-config.php ]]; then
+				clearmsg "There's already a project $new_name in $new_mode mode, in $varwww_path/$new_name_mode"
+				echo "Maybe it's just a brand new empty project you've just created for this restoration"
+				echo "In this case, you can just proceed by pressing a key"
+				read
+			else
+				clearmsg "There's already a project $new_name in $new_mode mode, in $varwww_path/$new_name_mode"
+				clearmsg "But $varwww_path/$new_name_mode/wordpress/wp-config.php does not exist"
+				echo "You need to let the container start, or recreate the project"
+				exit 1
+			fi
 		else
 			clearmsg "First please create project $new_name in $new_mode mode"
 			read
@@ -184,27 +191,36 @@ main(){
 	# RESTORE DATA IN /var/www
 	# If there's new name, means we don't overwrite the existing project with the original name
 	if [[ -n $new_name ]]; then
+		# we first stop the new created project
+		docker compose -f $project_path/$new_name_mode/docker-compose.yml down
 		# Restore data
 		# we cannot delete and just copy the wordpress folder
 		# as we need to keep wordpress/wp-config.php
 		rm -rf $varwww_path/$new_name_mode/wordpress/wp-content
-		mv $restore_path/$archive_name/$original_relative_varwww_path/$original_name_mode/wordpress/wp-content $varwww_path/$new_name_mode/wordpress/
+		mv $restore_path/$archive_name/$relative_varwww_path/$original_name_mode/wordpress/wp-content $varwww_path/$new_name_mode/wordpress/
 	else
 		# Restore data
 		# In the case where we just restore the project, it is same wordpress folder
-		mv $restore_path/$archive_name/$original_relative_varwww_path/$original_name_mode $varwww_path/$original_name_mode
+		mv $restore_path/$archive_name/$relative_varwww_path/$original_name_mode $varwww_path/$original_name_mode
 	fi
 
 	generaldb_credentials_file $new_mode
 
 	# RESTORE DATABASE
 	if [[ -n $new_name ]]; then
-		# we first need to drop the empty DB that has just been created and recreated a totally empty one
+		# we first need to drop the empty DB that has just been created and recreate a totally empty one
 		delete_dbs $new_name_mode
 		create_db $new_name_mode
 		# now we import the content of the original DB into the new one
 		mv $restore_path/$archive_name/$original_relative_db_shared_path_host/$original_name_mode.sql $new_db_shared_path_host
 	        docker exec $generaldb_container_name bash -c "mysql -u $username -p$password $new_name_mode < $db_shared_path_container/$original_name_mode.sql"
+
+		clearmsg "\nProject restored. You now need to restart the container, using the commands provided to you when creating it:"
+		cat <<-EOF
+
+		export new_project=...; export new_username=...; export new_password=...
+		docker compose -f $project_path/$new_name_mode/docker-compose.yml up -d
+		EOF
 	fi
 
 
