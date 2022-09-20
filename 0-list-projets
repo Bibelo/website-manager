@@ -131,7 +131,10 @@ main(){
 	echo
 	
 	clearmsg "Content of Reverse Proxy path"
-	ls -1Atr $reverse_proxy_defpath
+	for file in $(ls -1Atr $reverse_proxy_defpath); do
+		echo $file $(grep proxy_pass $reverse_proxy_defpath/$file)
+	done
+	echo
 
 }
 

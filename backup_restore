@@ -5,7 +5,7 @@
 # 
 # Version 1.0
 # tbartolone 30/06/2020
-# set -x
+ set -x
 
 usage() {
 	init
@@ -123,24 +123,35 @@ main(){
 
 	if [[ $# -eq 4 ]]; then
 		new_name=$3
-		clearmsg "First please create project $new_name in $mode mode"
 		new_name_mode=${new_name}-${mode}
-		read
 	else
 		new_name=''
 	fi
 
-
-	clearmsg "mode $archive project $project"
-
-	generaldb_credentials_file $mode
-	clearmsg "$username $password"
+	# Checks
+	if [[ -n $new_name ]]; then
+		if [[ -d $varwww_path/$new_name_mode ]]; then
+			clearmsg "There's already a project $new_name in $mode mode, in $varwww_path/$new_name_mode"
+			echo "Maybe it's just a brand new empty project you've just created for this restoration"
+			echo "In this case, you can just proceed by pressing a key"
+			read
+		else
+			clearmsg "First please create project $new_name in $mode mode"
+			read
+		fi
+	else
+		if [[ -d $varwww_path/$original_name_mode ]]; then
+			clearmsg "There's already a project original_name_mode, in $varwww_path/$original_name_mode"
+			exit 1
+		fi
+	fi
 
 	archive_name=$(basename $archive | sed 's/\.tgz//')
 	mkdir -p $restore_path/$archive_name
 	tar -xzf $archive --directory $restore_path/$archive_name
 
-
+	# RESTORE DATA IN /var/www
+	# If there's new name, means we don't overwrite the existing project with the original name
 	if [[ -n $new_name ]]; then
 		# Restore data
 		# we cannot delete and just copy the wordpress folder
@@ -152,8 +163,18 @@ main(){
 		# In the case where we just restore the project, it is same wordpress folder
 		mv $restore_path/$archive_name/$relative_varwww_path/$original_name_mode $varwww_path/$original_name_mode
 	fi
+
+#	if [[ -n $new_name ]]; then
+#		clearmsg "Recreating $new_name_mode container"
+#		docker-compose -f $project_path/$new_name_mode/docker-compose.yml up -d
+#	fi
 	exit
-	# Restore container config
+	clearmsg "mode $archive project $project"
+
+	generaldb_credentials_file $mode
+	clearmsg "$username $password"
+
+	# RESTORE CONTAINER CONFIG
 #	mv $restore_path/$archive_name/$relative_project_path/$project $project_path/$project$suffix
 #	sed -i "s/$project/$project$suffix/g" $project_path/$project$suffix/docker-compose.yml
 
