@@ -9,6 +9,11 @@ usage() {
 	Missing arguments
 	$PROGNAME <project_name> <username> dev|prod
 
+	NB: do not add the -dev or -prod extension to the name of the project
+
+	For example:
+	$PROGNAME test1 test1-dev-clasp-mustiness-retiring dev
+
 	EOF
         exit 1
 }
@@ -100,11 +105,11 @@ main(){
 
         init
 
-        project_to_delete=$1
 	username_to_delete=$2
         #export $project_to_delete
         #export $username_to_delete
         mode=$3
+        project_to_delete=$1-$mode
 
         generaldb_container_name=${mode}_generaldb_container_name
         generaldb_container_name=${!generaldb_container_name}

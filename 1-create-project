@@ -10,6 +10,11 @@ usage() {
 	Missing arguments
 	$PROGNAME <project_name> dev|prod
 
+	NB: do not add the -dev or -prod extension to the name of the project
+
+	For example:
+	$PROGNAME test1 dev
+
 	EOF
 		exit 1
 }
@@ -124,11 +129,11 @@ main(){
 	New password: $new_password
 	EOF
 
-	clearmsg "\nBefore creating the container with docker compose"
+	clearmsg "\nIf you ever need to recreate the wordpress container:"
 	cat <<-EOF
-	If you ever need to recreate the project container, you will need to type this line before:
+	NB: always export the variables before creating the container
+
 	export new_project=$new_project; export new_username=$new_username; export new_password=$new_password
-	Then:
 	docker compose -f $project_path/$new_project/docker-compose.yml up -d
 	EOF
 

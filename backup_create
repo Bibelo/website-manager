@@ -13,11 +13,14 @@ usage() {
 	Missing arguments
 	$PROGNAME <project_name> <mode>
 
+	NB: do not add the -dev or -prod extension to the name of the project
+
 	For example:
 	$PROGNAME acme dev
 	Will backup acme-dev in dev DB
 
-	$credentials_path/.<project_name>.cnf
+	You will first need to create this file with the DB credentials:
+	$credentials_path/.<project_name>-<mode>.cnf
 	[mysqldump]
 	user=XXXXX
 	password=XXXX
