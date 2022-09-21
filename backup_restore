@@ -5,7 +5,7 @@
 # 
 # Version 1.0
 # tbartolone 30/06/2020
-# set -x
+ set -x
 
 usage() {
 	init
@@ -119,7 +119,11 @@ delete_dbs(){
 
 
 create_db_user(){
-        command="CREATE DATABASE \`$project$suffix\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$project$suffix\`.* TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
+	new_project=$1
+	new_username=$2
+	new_password=$3
+
+        command="CREATE DATABASE \`$new_project\`; SHOW DATABASES; CREATE USER \"$new_username\" IDENTIFIED BY \"$new_password\"; SELECT User FROM mysql.user; GRANT ALL PRIVILEGES ON \`$new_project\`.* TO \"$new_username\"; FLUSH PRIVILEGES; SHOW GRANTS FOR \"$new_username\";"
 
         docker exec -it $generaldb_container_name mysql -u "$username" -p$password -e"$command"
 }
@@ -200,8 +204,9 @@ main(){
 		mv $restore_path/$archive_name/$relative_varwww_path/$original_name_mode/wordpress/wp-content $varwww_path/$new_name_mode/wordpress/
 	else
 		# Restore data
-		# In the case where we just restore the project, it is same wordpress folder
+		# In the case where we just restore the project, it is same wordpress folders in the same locations
 		mv $restore_path/$archive_name/$relative_varwww_path/$original_name_mode $varwww_path/$original_name_mode
+		mv $restore_path/$archive_name/$relative_project_path/$original_name_mode $project_path/$original_name_mode
 	fi
 
 	generaldb_credentials_file $new_mode
@@ -221,6 +226,17 @@ main(){
 		export new_project=...; export new_username=...; export new_password=...
 		docker compose -f $project_path/$new_name_mode/docker-compose.yml up -d
 		EOF
+	else
+		new_username=$(grep DB_USER $varwww_path/$original_name_mode/wordpress/wp-config.php  | awk '{print $3}' | tr -d \')
+		new_password=$(grep DB_PASSWORD $varwww_path/$original_name_mode/wordpress/wp-config.php  | awk '{print $3}' | tr -d \')
+		new_project=$original_name_mode
+		echo $new_username $new_password $new_project
+		export new_username; export new_password; export new_project
+		create_db_user $new_project $new_username $new_password
+		mv $restore_path/$archive_name/$original_relative_db_shared_path_host/$original_name_mode.sql $original_db_shared_path_host
+	        docker exec $generaldb_container_name bash -c "mysql -u $username -p$password $original_name_mode < $db_shared_path_container/$original_name_mode.sql"
+		docker compose -f $project_path/$original_name_mode/docker-compose.yml up -d
+
 	fi
 
 
